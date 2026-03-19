@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Fonctions utilitaires ────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+
+    function hasValidSubscription() {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.active == true &&
+             user.subscription_end != null &&
+             user.subscription_end > request.time;
+    }
+
+    // ─── Collection : users ───────────────────────────────────────────────
+
+    match /users/{userId} {
+      // Lecture : l'utilisateur lui-même ou un admin
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Création : l'utilisateur peut créer son propre document OU un admin peut créer n'importe quel document
+      // On permet la création si l'utilisateur authentifié crée son propre document (userId == request.auth.uid)
+      allow create: if isAuthenticated() && (isOwner(userId) || 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+
+      // Mise à jour : l'utilisateur peut mettre à jour son FCM token uniquement
+      // L'admin peut tout modifier
+      allow update: if isAdmin() ||
+        (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fcm_token']));
+
+      // Suppression : uniquement par un admin
+      allow delete: if isAdmin();
+    }
+
+    // ─── Collection : classes ─────────────────────────────────────────────
+
+    match /classes/{classId} {
+      // Lecture : tout utilisateur authentifié
+      allow read: if isAuthenticated();
+
+      // Création / Modification / Suppression : uniquement admin
+      allow create, update, delete: if isAdmin();
+
+      // Exception : mise à jour du compteur de participants autorisée pour les reservations
+      allow update: if isAuthenticated() &&
+        hasValidSubscription() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['current_participants']);
+    }
+
+    // ─── Collection : reservations ────────────────────────────────────────
+
+    match /reservations/{reservationId} {
+      // Lecture : l'utilisateur propriétaire ou un admin
+      allow read: if isAuthenticated() &&
+        (resource.data.user_id == request.auth.uid || isAdmin());
+
+      // Création : utilisateur actif avec abonnement valide, pour lui-même
+      allow create: if isAuthenticated() &&
+        hasValidSubscription() &&
+        request.resource.data.user_id == request.auth.uid;
+
+      // Suppression : le propriétaire ou un admin
+      allow delete: if isAuthenticated() &&
+        (resource.data.user_id == request.auth.uid || isAdmin());
+
+      // Aucune mise à jour autorisée (supprimer/recréer)
+      allow update: if false;
+    }
+
+    // ─── Collection : notifications_queue ────────────────────────────────
+
+    match /notifications_queue/{notifId} {
+      // Lecture et création : utilisateur authentifié
+      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Refus par défaut ─────────────────────────────────────────────────
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

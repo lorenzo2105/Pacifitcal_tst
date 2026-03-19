@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Couleur principale CrossFit Orange -->
+    <color name="notification_color">#FF6B00</color>
+    <!-- Couleur de fond splash -->
+    <color name="launch_background">#121212</color>
+</resources>

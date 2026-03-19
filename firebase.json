@@ -1,0 +1,44 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "pacifitcal",
+          "appId": "1:1094050978485:android:489e77397fdbc26fa53cfc",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "pacifitcal",
+          "configurations": {
+            "android": "1:1094050978485:android:489e77397fdbc26fa53cfc",
+            "ios": "1:1094050978485:ios:8254ebc5360be2cfa53cfc"
+          }
+        }
+      }
+    }
+  }
+}

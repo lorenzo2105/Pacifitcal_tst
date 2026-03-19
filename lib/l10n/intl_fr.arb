@@ -1,0 +1,20 @@
+{
+  "@@locale": "fr",
+  "appName": "PacifitCal",
+  "login": "Connexion",
+  "register": "Inscription",
+  "email": "Email",
+  "password": "Mot de passe",
+  "firstName": "Prénom",
+  "lastName": "Nom",
+  "reserve": "Réserver",
+  "cancel": "Annuler",
+  "profile": "Mon profil",
+  "planning": "Planning",
+  "myClasses": "Mes cours",
+  "subscription": "Abonnement",
+  "active": "Actif",
+  "expired": "Expiré",
+  "signOut": "Se déconnecter",
+  "admin": "Administration"
+}

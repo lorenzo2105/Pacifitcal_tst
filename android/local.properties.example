@@ -1,0 +1,14 @@
+# Copiez ce fichier en "local.properties" et adaptez les chemins à votre machine.
+# Ce fichier est généré automatiquement par Android Studio / Flutter.
+# NE PAS committer local.properties dans Git.
+
+# Chemin vers le SDK Flutter (exemple Windows)
+flutter.sdk=C:\\flutter
+
+# Chemin vers le SDK Android (exemple Windows)
+sdk.dir=C:\\Users\\VOTRE_NOM\\AppData\\Local\\Android\\Sdk
+
+# Version Flutter (rempli automatiquement)
+flutter.versionName=1.0.0
+flutter.versionCode=1
+flutter.buildMode=debug
