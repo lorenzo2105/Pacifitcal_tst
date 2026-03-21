@@ -48,7 +48,7 @@ class ReservationProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final reservation = await _firestoreService.createReservation(
+      await _firestoreService.createReservation(
         userId: userId,
         userName: userName,
         classModel: classModel,

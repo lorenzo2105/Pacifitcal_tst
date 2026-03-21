@@ -10,6 +10,7 @@ class ClassModel {
   final int currentParticipants;
   final String? description;
   final String? coach;
+  final String? endTime;
 
   ClassModel({
     required this.id,
@@ -21,6 +22,7 @@ class ClassModel {
     this.currentParticipants = 0,
     this.description,
     this.coach,
+    this.endTime,
   });
 
   bool get isFull => currentParticipants >= maxParticipants;
@@ -52,6 +54,7 @@ class ClassModel {
       currentParticipants: data['current_participants'] ?? 0,
       description: data['description'],
       coach: data['coach'],
+      endTime: data['end_time'],
     );
   }
 
@@ -60,6 +63,7 @@ class ClassModel {
       'name': name,
       'date': Timestamp.fromDate(date),
       'time': time,
+      'end_time': endTime,
       'duration': duration,
       'max_participants': maxParticipants,
       'current_participants': currentParticipants,
@@ -78,6 +82,7 @@ class ClassModel {
     int? currentParticipants,
     String? description,
     String? coach,
+    String? endTime,
   }) {
     return ClassModel(
       id: id ?? this.id,
@@ -89,6 +94,7 @@ class ClassModel {
       currentParticipants: currentParticipants ?? this.currentParticipants,
       description: description ?? this.description,
       coach: coach ?? this.coach,
+      endTime: endTime ?? this.endTime,
     );
   }
 }

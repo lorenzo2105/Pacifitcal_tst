@@ -13,6 +13,7 @@ import 'package:pacifitcal/screens/admin/admin_classes_screen.dart';
 import 'package:pacifitcal/screens/admin/admin_reservations_screen.dart';
 import 'package:pacifitcal/screens/admin/admin_user_form_screen.dart';
 import 'package:pacifitcal/screens/admin/admin_class_form_screen.dart';
+import 'package:pacifitcal/screens/admin/admin_template_form_screen.dart';
 import 'package:pacifitcal/screens/splash_screen.dart';
 import 'package:pacifitcal/models/class_model.dart';
 
@@ -124,6 +125,17 @@ class AppRouter {
           builder: (context, state) {
             final classId = state.pathParameters['classId']!;
             return AdminReservationsScreen(classId: classId);
+          },
+        ),
+        GoRoute(
+          path: '/admin/templates/new',
+          builder: (context, state) => const AdminTemplateFormScreen(),
+        ),
+        GoRoute(
+          path: '/admin/templates/edit/:templateId',
+          builder: (context, state) {
+            final templateId = state.pathParameters['templateId']!;
+            return AdminTemplateFormScreen(templateId: templateId);
           },
         ),
       ],

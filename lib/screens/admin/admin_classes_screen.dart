@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/models/class_model.dart';
+import 'package:pacifitcal/models/class_template_model.dart';
 import 'package:pacifitcal/services/firestore_service.dart';
 
 class AdminClassesScreen extends StatefulWidget {
@@ -21,7 +22,7 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -45,42 +46,205 @@ class _AdminClassesScreenState extends State<AdminClassesScreen>
           labelColor: AppTheme.primary,
           unselectedLabelColor: AppTheme.onSurfaceMuted,
           tabs: const [
+            Tab(text: 'Récurrents'),
             Tab(text: 'À venir'),
             Tab(text: 'Passés'),
           ],
         ),
       ),
-      body: StreamBuilder<List<ClassModel>>(
-        stream: _firestoreService.streamAllClasses(),
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppTheme.primary));
-          }
-          if (snap.hasError) {
-            return Center(child: Text('Erreur: ${snap.error}'));
-          }
-
-          final all = snap.data ?? [];
-          final upcoming = all.where((c) => !c.isPast).toList();
-          final past = all.where((c) => c.isPast).toList();
-
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _buildClassList(context, upcoming),
-              _buildClassList(context, past, isPast: true),
-            ],
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildTemplatesTab(context),
+          _buildClassesTab(context, upcoming: true),
+          _buildClassesTab(context, upcoming: false),
+        ],
+      ),
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, _) {
+          final isTemplateTab = _tabController.index == 0;
+          return FloatingActionButton.extended(
+            onPressed: () => isTemplateTab
+                ? context.push('/admin/templates/new')
+                : context.push('/admin/classes/new'),
+            backgroundColor: AppTheme.primary,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: Text(
+              isTemplateTab ? 'Séance récurrente' : 'Cours ponctuel',
+              style: const TextStyle(color: Colors.white),
+            ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/admin/classes/new'),
-        backgroundColor: AppTheme.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Nouveau cours',
-            style: TextStyle(color: Colors.white)),
+    );
+  }
+
+  // ─── Onglet Templates récurrents ──────────────────────────────────────────
+
+  Widget _buildTemplatesTab(BuildContext context) {
+    return StreamBuilder<List<ClassTemplateModel>>(
+      stream: _firestoreService.streamTemplates(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary));
+        }
+        final templates = snap.data ?? [];
+        if (templates.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.repeat, size: 64, color: AppTheme.onSurfaceMuted),
+                const SizedBox(height: 16),
+                const Text('Aucune séance récurrente',
+                    style: TextStyle(color: AppTheme.onSurfaceMuted, fontSize: 16)),
+                const SizedBox(height: 8),
+                const Text('Appuyez sur + pour en créer une',
+                    style: TextStyle(color: AppTheme.onSurfaceMuted, fontSize: 14)),
+              ],
+            ),
+          );
+        }
+        // Grouper par jour
+        final byDay = <int, List<ClassTemplateModel>>{};
+        for (final t in templates) {
+          byDay.putIfAbsent(t.dayOfWeek, () => []).add(t);
+        }
+        final sortedDays = byDay.keys.toList()..sort();
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+          itemCount: sortedDays.length,
+          itemBuilder: (ctx, i) {
+            final day = sortedDays[i];
+            final dayTemplates = byDay[day]!
+              ..sort((a, b) => a.startTime.compareTo(b.startTime));
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    dayTemplates.first.dayName,
+                    style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  ),
+                ),
+                ...dayTemplates
+                    .map((t) => _templateCard(context, t))
+                    .toList(),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _templateCard(BuildContext context, ClassTemplateModel t) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: (t.active ? AppTheme.primary : AppTheme.onSurfaceMuted)
+                .withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.repeat,
+              color: t.active ? AppTheme.primary : AppTheme.onSurfaceMuted,
+              size: 22),
+        ),
+        title: Text(
+          t.name,
+          style: TextStyle(
+              color: t.active ? Colors.white : AppTheme.onSurfaceMuted,
+              fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${t.startTime} - ${t.endTime}  •  ${t.maxParticipants} places'
+          '${t.coach != null ? '  •  ${t.coach}' : ''}',
+          style: const TextStyle(
+              color: AppTheme.onSurfaceMuted, fontSize: 12),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined,
+                  color: AppTheme.primary, size: 20),
+              onPressed: () =>
+                  context.push('/admin/templates/edit/${t.id}'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  color: AppTheme.error, size: 20),
+              onPressed: () => _confirmDeleteTemplate(context, t),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _confirmDeleteTemplate(
+      BuildContext context, ClassTemplateModel t) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('Supprimer la séance récurrente'),
+        content: Text(
+            'Supprimer "${t.name}" tous les ${t.dayName}s ?\nToutes les séances et réservations futures seront supprimées.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await _firestoreService.deleteTemplate(t.id);
+    }
+  }
+
+  // ─── Onglet Cours individuels ──────────────────────────────────────────────
+
+  Widget _buildClassesTab(BuildContext context, {required bool upcoming}) {
+    return StreamBuilder<List<ClassModel>>(
+      stream: _firestoreService.streamAllClasses(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary));
+        }
+        if (snap.hasError) {
+          return Center(child: Text('Erreur: ${snap.error}'));
+        }
+        final all = snap.data ?? [];
+        final filtered =
+            upcoming ? all.where((c) => !c.isPast).toList() : all.where((c) => c.isPast).toList();
+        return _buildClassList(context, filtered, isPast: !upcoming);
+      },
     );
   }
 

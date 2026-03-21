@@ -25,6 +25,7 @@ class _AdminClassFormScreenState extends State<AdminClassFormScreen> {
 
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay _selectedEndTime = const TimeOfDay(hour: 10, minute: 0);
   bool _isLoading = false;
   ClassModel? _existingClass;
 
@@ -52,6 +53,13 @@ class _AdminClassFormScreenState extends State<AdminClassFormScreen> {
         hour: int.tryParse(parts[0]) ?? 9,
         minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
       );
+      if (cls.endTime != null) {
+        final ep = cls.endTime!.split(':');
+        _selectedEndTime = TimeOfDay(
+          hour: int.tryParse(ep[0]) ?? 10,
+          minute: int.tryParse(ep.length > 1 ? ep[1] : '0') ?? 0,
+        );
+      }
     }
     setState(() => _isLoading = false);
   }
@@ -69,6 +77,9 @@ class _AdminClassFormScreenState extends State<AdminClassFormScreen> {
   String get _timeString =>
       '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
 
+  String get _endTimeString =>
+      '${_selectedEndTime.hour.toString().padLeft(2, '0')}:${_selectedEndTime.minute.toString().padLeft(2, '0')}';
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -79,6 +90,7 @@ class _AdminClassFormScreenState extends State<AdminClassFormScreen> {
         name: _nameCtrl.text.trim(),
         date: _selectedDate,
         time: _timeString,
+        endTime: _endTimeString,
         duration: int.tryParse(_durationCtrl.text) ?? 60,
         maxParticipants: int.tryParse(_maxCtrl.text) ?? 15,
         currentParticipants:
@@ -178,6 +190,8 @@ class _AdminClassFormScreenState extends State<AdminClassFormScreen> {
                         Expanded(child: _datePicker(context)),
                         const SizedBox(width: 12),
                         Expanded(child: _timePicker(context)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _endTimePicker(context)),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -313,33 +327,56 @@ class _AdminClassFormScreenState extends State<AdminClassFormScreen> {
         );
         if (picked != null) setState(() => _selectedTime = picked);
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF3A3A3A)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.access_time_outlined,
-                color: AppTheme.primary, size: 18),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Heure',
-                    style: TextStyle(
-                        color: AppTheme.onSurfaceMuted, fontSize: 11)),
-                Text(
-                  _timeString,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w500),
-                ),
-              ],
+      child: _timePickerContainer('Début', _timeString),
+    );
+  }
+
+  Widget _endTimePicker(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: _selectedEndTime,
+          builder: (ctx, child) => Theme(
+            data: Theme.of(ctx).copyWith(
+              colorScheme: const ColorScheme.dark(primary: AppTheme.primary),
             ),
-          ],
-        ),
+            child: child!,
+          ),
+        );
+        if (picked != null) setState(() => _selectedEndTime = picked);
+      },
+      child: _timePickerContainer('Fin', _endTimeString),
+    );
+  }
+
+  Widget _timePickerContainer(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF3A3A3A)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.access_time_outlined,
+              color: AppTheme.primary, size: 18),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      color: AppTheme.onSurfaceMuted, fontSize: 11)),
+              Text(
+                value,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

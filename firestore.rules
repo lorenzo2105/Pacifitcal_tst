@@ -52,6 +52,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ─── Collection : class_templates ────────────────────────────────────
+    match /class_templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
     // ─── Collection : classes ─────────────────────────────────────────────
 
     match /classes/{classId} {
