@@ -67,11 +67,14 @@ service cloud.firestore {
       // Création / Modification / Suppression : uniquement admin
       allow create, update, delete: if isAdmin();
 
-      // Exception : mise à jour du compteur de participants autorisée pour les reservations
+      // Exception : mise à jour du compteur de participants
+      // - Incrémentation : utilisateur avec abonnement valide (création de réservation)
+      // - Décrémentation : tout utilisateur authentifié (annulation de réservation)
       allow update: if isAuthenticated() &&
-        hasValidSubscription() &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['current_participants']);
+          .hasOnly(['current_participants']) &&
+        (hasValidSubscription() || 
+         request.resource.data.current_participants < resource.data.current_participants);
     }
 
     // ─── Collection : reservations ────────────────────────────────────────

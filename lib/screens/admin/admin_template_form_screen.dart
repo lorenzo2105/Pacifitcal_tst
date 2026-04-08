@@ -32,7 +32,13 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
   bool get isEditing => widget.templateId != null;
 
   static const _days = [
-    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'
+    'Lundi',
+    'Mardi',
+    'Mercredi',
+    'Jeudi',
+    'Vendredi',
+    'Samedi',
+    'Dimanche'
   ];
 
   @override
@@ -53,11 +59,9 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
       _dayOfWeek = t.dayOfWeek;
       _active = t.active;
       final sp = t.startTime.split(':');
-      _startTime = TimeOfDay(
-          hour: int.parse(sp[0]), minute: int.parse(sp[1]));
+      _startTime = TimeOfDay(hour: int.parse(sp[0]), minute: int.parse(sp[1]));
       final ep = t.endTime.split(':');
-      _endTime = TimeOfDay(
-          hour: int.parse(ep[0]), minute: int.parse(ep[1]));
+      _endTime = TimeOfDay(hour: int.parse(ep[0]), minute: int.parse(ep[1]));
     }
     setState(() => _isLoading = false);
   }
@@ -94,8 +98,8 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
           final endMins = _endTime.hour * 60 + _endTime.minute;
           if (endMins <= startMins) {
             final newEnd = startMins + 60;
-            _endTime = TimeOfDay(
-                hour: (newEnd ~/ 60) % 24, minute: newEnd % 60);
+            _endTime =
+                TimeOfDay(hour: (newEnd ~/ 60) % 24, minute: newEnd % 60);
           }
         } else {
           _endTime = picked;
@@ -133,7 +137,7 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
         await _firestoreService.createTemplate(template);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Séances créées pour 8 semaines !'),
+              content: Text('Récurrence activée ! Mois glissant de 4 semaines'),
               backgroundColor: AppTheme.success));
         }
       }
@@ -141,8 +145,7 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: AppTheme.error));
+            content: Text('Erreur: $e'), backgroundColor: AppTheme.error));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -159,8 +162,9 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            Text(isEditing ? 'MODIFIER SÉANCE RÉCURRENTE' : 'NOUVELLE SÉANCE RÉCURRENTE'),
+        title: Text(isEditing
+            ? 'MODIFIER SÉANCE RÉCURRENTE'
+            : 'NOUVELLE SÉANCE RÉCURRENTE'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -183,8 +187,7 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
                   hintText: 'Ex: Small Group, Accès libre...',
                   prefixIcon: Icon(Icons.fitness_center_outlined),
                 ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Requis' : null,
+                validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -215,9 +218,13 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildTimePicker('Heure de début', _fmt(_startTime), () => _pickTime(true))),
+                  Expanded(
+                      child: _buildTimePicker('Heure de début',
+                          _fmt(_startTime), () => _pickTime(true))),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildTimePicker('Heure de fin', _fmt(_endTime), () => _pickTime(false))),
+                  Expanded(
+                      child: _buildTimePicker('Heure de fin', _fmt(_endTime),
+                          () => _pickTime(false))),
                 ],
               ),
               const SizedBox(height: 8),
@@ -236,7 +243,7 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
                       child: Text(
                         isEditing
                             ? 'Durée : ${ClassTemplateModel(id: '', name: '', dayOfWeek: _dayOfWeek, startTime: _fmt(_startTime), endTime: _fmt(_endTime), maxParticipants: 10).durationMinutes} min'
-                            : 'Génère les séances des 8 prochaines semaines tous les ${_days[_dayOfWeek - 1]}s',
+                            : 'Mois glissant : maintient automatiquement 4 semaines de séances tous les ${_days[_dayOfWeek - 1]}s',
                         style: const TextStyle(
                             color: AppTheme.primary,
                             fontWeight: FontWeight.w500,
@@ -271,8 +278,7 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
               const SizedBox(height: 32),
               _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary))
+                      child: CircularProgressIndicator(color: AppTheme.primary))
                   : ElevatedButton.icon(
                       onPressed: _save,
                       icon: Icon(isEditing ? Icons.save : Icons.repeat),
@@ -289,8 +295,10 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
 
   Widget _sectionTitle(String title) {
     return Text(title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold, color: Colors.white));
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white));
   }
 
   Widget _buildDaySelector() {
@@ -303,27 +311,22 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
         return GestureDetector(
           onTap: () => setState(() => _dayOfWeek = day),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppTheme.primary.withOpacity(0.2)
                   : AppTheme.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isSelected
-                    ? AppTheme.primary
-                    : const Color(0xFF2A2A2A),
+                color: isSelected ? AppTheme.primary : const Color(0xFF2A2A2A),
                 width: isSelected ? 1.5 : 1,
               ),
             ),
             child: Text(
               _days[i].substring(0, 3),
               style: TextStyle(
-                color:
-                    isSelected ? AppTheme.primary : AppTheme.onSurfaceMuted,
-                fontWeight:
-                    isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? AppTheme.primary : AppTheme.onSurfaceMuted,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 13,
               ),
             ),
@@ -333,13 +336,11 @@ class _AdminTemplateFormScreenState extends State<AdminTemplateFormScreen> {
     );
   }
 
-  Widget _buildTimePicker(
-      String label, String value, VoidCallback onTap) {
+  Widget _buildTimePicker(String label, String value, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: AppTheme.surfaceVariant,
           borderRadius: BorderRadius.circular(12),

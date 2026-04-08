@@ -1,43 +1,45 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
+// Firebase Messaging temporairement désactivé - nécessite Google Play Services
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('Background message: ${message.messageId}');
-}
+// @pragma('vm:entry-point')
+// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+//   debugPrint('Background message: ${message.messageId}');
+// }
 
 class NotificationService {
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
   Future<void> initialize() async {
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Foreground message: ${message.notification?.title}');
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('Message opened app: ${message.data}');
-    });
+    // Firebase Messaging désactivé temporairement
+    debugPrint(
+        'NotificationService: Firebase Messaging désactivé (nécessite Google Play Services)');
+    // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // await _messaging.requestPermission(
+    //   alert: true,
+    //   badge: true,
+    //   sound: true,
+    // );
+    // FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    //   debugPrint('Foreground message: ${message.notification?.title}');
+    // });
+    // FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    //   debugPrint('Message opened app: ${message.data}');
+    // });
   }
 
   Future<String?> getToken() async {
-    return await _messaging.getToken();
+    // return await _messaging.getToken();
+    return null;
   }
 
   Future<void> subscribeToTopic(String topic) async {
-    await _messaging.subscribeToTopic(topic);
+    // await _messaging.subscribeToTopic(topic);
   }
 
   Future<void> unsubscribeFromTopic(String topic) async {
-    await _messaging.unsubscribeFromTopic(topic);
+    // await _messaging.unsubscribeFromTopic(topic);
   }
 
   static Future<void> sendReservationConfirmation({

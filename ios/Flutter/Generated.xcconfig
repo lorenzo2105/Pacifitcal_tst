@@ -1,6 +1,6 @@
 // This is a generated file; do not edit or check into version control.
-FLUTTER_ROOT=C:\wamp64\www\flutter
-FLUTTER_APPLICATION_PATH=C:\wamp64\www\PacifitCal
+FLUTTER_ROOT=C:\Flutter\flutter
+FLUTTER_APPLICATION_PATH=C:\wamp64\www\Pacifitcal_tst
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_TARGET=lib\main.dart
 FLUTTER_BUILD_DIR=build

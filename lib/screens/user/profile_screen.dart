@@ -7,8 +7,15 @@ import 'package:pacifitcal/providers/auth_provider.dart';
 import 'package:pacifitcal/providers/reservation_provider.dart';
 import 'package:pacifitcal/widgets/subscription_badge.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  DateTime _currentMonth = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +105,8 @@ class ProfileScreen extends StatelessWidget {
                       _infoRow(
                         Icons.play_circle_outline,
                         'Début',
-                        DateFormat('dd/MM/yyyy').format(user.subscriptionStart!),
+                        DateFormat('dd/MM/yyyy')
+                            .format(user.subscriptionStart!),
                       ),
                     if (user.subscriptionEnd != null)
                       _infoRow(
@@ -140,8 +148,7 @@ class ProfileScreen extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 'Votre abonnement est expiré. Contactez votre administrateur pour le renouveler.',
-                                style:
-                                    TextStyle(color: AppTheme.error),
+                                style: TextStyle(color: AppTheme.error),
                               ),
                             ),
                           ],
@@ -149,42 +156,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  _sectionTitle(context, 'Mes réservations à venir'),
-                  if (reservationProvider.upcomingReservations.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF2A2A2A)),
-                      ),
-                      child: const Text(
-                        'Aucune réservation à venir',
-                        style: TextStyle(
-                            color: AppTheme.onSurfaceMuted),
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  else
-                    ...reservationProvider.upcomingReservations.map(
-                      (res) => Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: const Icon(Icons.fitness_center,
-                              color: AppTheme.primary),
-                          title: Text(res.className ?? 'Cours',
-                              style: const TextStyle(color: Colors.white)),
-                          subtitle: Text(
-                            res.classDate != null
-                                ? '${DateFormat('dd/MM/yyyy').format(res.classDate!)} à ${res.classTime}'
-                                : '',
-                            style: const TextStyle(
-                                color: AppTheme.onSurfaceMuted),
-                          ),
-                        ),
-                      ),
-                    ),
+                  _sectionTitle(context, 'Mes réservations'),
+                  _buildCalendar(reservationProvider),
                   const SizedBox(height: 32),
                   OutlinedButton.icon(
                     onPressed: () => _confirmSignOut(context),
@@ -198,6 +171,235 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+    );
+  }
+
+  void _previousMonth() {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
+    });
+  }
+
+  List<DateTime> _getDaysInMonth(DateTime month) {
+    final firstDay = DateTime(month.year, month.month, 1);
+    final lastDay = DateTime(month.year, month.month + 1, 0);
+    final days = <DateTime>[];
+
+    // Ajouter les jours du mois précédent pour compléter la première semaine
+    final firstWeekday = firstDay.weekday;
+    for (int i = firstWeekday - 1; i > 0; i--) {
+      days.add(firstDay.subtract(Duration(days: i)));
+    }
+
+    // Ajouter tous les jours du mois
+    for (int i = 0; i < lastDay.day; i++) {
+      days.add(DateTime(month.year, month.month, i + 1));
+    }
+
+    // Ajouter les jours du mois suivant pour compléter la dernière semaine
+    final remainingDays = 7 - (days.length % 7);
+    if (remainingDays < 7) {
+      for (int i = 1; i <= remainingDays; i++) {
+        days.add(DateTime(month.year, month.month + 1, i));
+      }
+    }
+
+    return days;
+  }
+
+  Widget _buildCalendar(ReservationProvider reservationProvider) {
+    final days = _getDaysInMonth(_currentMonth);
+    final monthFormat = DateFormat('MMMM yyyy', 'fr_FR');
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Créer une map des réservations par date
+    final reservationsByDate = <String, List<String>>{};
+    for (final res in reservationProvider.userReservations) {
+      if (res.classDate != null && res.classTime != null) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(res.classDate!);
+        if (!reservationsByDate.containsKey(dateKey)) {
+          reservationsByDate[dateKey] = [];
+        }
+        reservationsByDate[dateKey]!.add(res.classTime!);
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // En-tête avec navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: AppTheme.primary),
+                onPressed: _previousMonth,
+              ),
+              Text(
+                monthFormat.format(_currentMonth),
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: AppTheme.primary),
+                onPressed: _nextMonth,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Jours de la semaine
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.', 'DIM.']
+                .map((day) => SizedBox(
+                      width: 40,
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppTheme.onSurfaceMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+          // Grille des jours
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 4,
+              mainAxisSpacing: 4,
+            ),
+            itemCount: days.length,
+            itemBuilder: (context, index) {
+              final day = days[index];
+              final isCurrentMonth = day.month == _currentMonth.month;
+              final isToday = day.year == today.year &&
+                  day.month == today.month &&
+                  day.day == today.day;
+              final dateKey = DateFormat('yyyy-MM-dd').format(day);
+              final hasReservations = reservationsByDate.containsKey(dateKey);
+              final reservations = reservationsByDate[dateKey] ?? [];
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? AppTheme.error.withOpacity(0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  children: [
+                    // Numéro du jour
+                    if (isToday)
+                      Positioned(
+                        top: 2,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.error,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${day.day}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned(
+                        top: 4,
+                        left: 0,
+                        right: 0,
+                        child: Text(
+                          '${day.day}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isCurrentMonth
+                                ? Colors.white
+                                : AppTheme.onSurfaceMuted,
+                            fontSize: 12,
+                            fontWeight: isCurrentMonth
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    // Heures des réservations
+                    if (hasReservations && isCurrentMonth)
+                      Positioned(
+                        bottom: 2,
+                        left: 2,
+                        right: 2,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: reservations
+                              .take(2)
+                              .map(
+                                (time) => Container(
+                                  margin: const EdgeInsets.only(bottom: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.success,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    time,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 

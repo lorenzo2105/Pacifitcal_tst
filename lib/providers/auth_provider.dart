@@ -19,28 +19,49 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
-  bool get isSubscriptionExpired => _currentUser?.isSubscriptionExpired ?? false;
+  bool get isSubscriptionExpired =>
+      _currentUser?.isSubscriptionExpired ?? false;
 
   AuthProvider() {
     _init();
   }
 
   void _init() {
-    _authSubscription = _authService.authStateChanges.listen((user) async {
-      if (user != null) {
-        _currentUser = await _authService.getUserData(user.uid);
-        if (_currentUser != null) {
-          final token = await _notificationService.getToken();
-          if (token != null) {
-            await _authService.updateFcmToken(user.uid, token);
+    try {
+      _authSubscription = _authService.authStateChanges.listen(
+        (user) async {
+          try {
+            if (user != null) {
+              _currentUser = await _authService.getUserData(user.uid);
+              // NotificationService désactivé temporairement
+              // if (_currentUser != null) {
+              //   final token = await _notificationService.getToken();
+              //   if (token != null) {
+              //     await _authService.updateFcmToken(user.uid, token);
+              //   }
+              // }
+            } else {
+              _currentUser = null;
+            }
+          } catch (e) {
+            print('❌ Erreur lors du chargement des données utilisateur: $e');
+            _currentUser = null;
           }
-        }
-      } else {
-        _currentUser = null;
-      }
+          _isLoading = false;
+          notifyListeners();
+        },
+        onError: (error) {
+          print('❌ Erreur dans le stream d\'authentification: $error');
+          _isLoading = false;
+          _currentUser = null;
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      print('❌ Erreur lors de l\'initialisation de l\'authentification: $e');
       _isLoading = false;
       notifyListeners();
-    });
+    }
   }
 
   Future<void> signIn(String email, String password) async {
@@ -101,7 +122,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _parseError(String raw) {
-    if (raw.contains('user-not-found') || raw.contains('wrong-password') ||
+    if (raw.contains('user-not-found') ||
+        raw.contains('wrong-password') ||
         raw.contains('invalid-credential')) {
       return 'Email ou mot de passe incorrect.';
     }

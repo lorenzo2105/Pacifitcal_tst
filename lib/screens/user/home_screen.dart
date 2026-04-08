@@ -43,6 +43,44 @@ class _HomeScreenState extends State<HomeScreen> {
     return d.subtract(Duration(days: d.weekday - 1));
   }
 
+  DateTime _currentMonth = DateTime.now();
+
+  void _previousMonth() {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
+    });
+  }
+
+  List<DateTime> _getDaysInMonth(DateTime month) {
+    final firstDay = DateTime(month.year, month.month, 1);
+    final lastDay = DateTime(month.year, month.month + 1, 0);
+    final days = <DateTime>[];
+
+    final firstWeekday = firstDay.weekday;
+    for (int i = firstWeekday - 1; i > 0; i--) {
+      days.add(firstDay.subtract(Duration(days: i)));
+    }
+
+    for (int i = 0; i < lastDay.day; i++) {
+      days.add(DateTime(month.year, month.month, i + 1));
+    }
+
+    final remainingDays = 7 - (days.length % 7);
+    if (remainingDays < 7) {
+      for (int i = 1; i <= remainingDays; i++) {
+        days.add(DateTime(month.year, month.month + 1, i));
+      }
+    }
+
+    return days;
+  }
+
   void _prevWeek() => setState(() {
         _weekStart = _weekStart.subtract(const Duration(days: 7));
       });
@@ -147,17 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: SafeArea(
-                    child: IconButton(
-                      icon: const Icon(Icons.person_outline,
-                          color: Colors.white),
-                      onPressed: () => context.push('/profile'),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -166,12 +193,6 @@ class _HomeScreenState extends State<HomeScreen> {
             style: GoogleFonts.bebasNeue(
                 color: Colors.white, fontSize: 20, letterSpacing: 2),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.person_outline, color: Colors.white),
-              onPressed: () => context.push('/profile'),
-            ),
-          ],
         ),
 
         // Sélecteur de semaine + jours
@@ -186,8 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 return const Padding(
                   padding: EdgeInsets.all(40),
                   child: Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary)),
+                      child:
+                          CircularProgressIndicator(color: AppTheme.primary)),
                 );
               }
               final classes = snap.data ?? [];
@@ -205,8 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: 12),
                         Text('Aucun cours ce jour',
                             style: TextStyle(
-                                color: AppTheme.onSurfaceMuted,
-                                fontSize: 15)),
+                                color: AppTheme.onSurfaceMuted, fontSize: 15)),
                       ],
                     ),
                   ),
@@ -222,10 +242,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (ctx, i) {
                   final cls = classes[i];
-                  final isReserved =
-                      reservationProvider.isReserved(cls.id);
-                  return _buildSessionCard(
-                      context, cls, isReserved, auth);
+                  final isReserved = reservationProvider.isReserved(cls.id);
+                  return _buildSessionCard(context, cls, isReserved, auth);
                 },
               );
             },
@@ -238,10 +256,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCalendarStrip() {
     final today = DateTime.now();
-    final days =
-        List.generate(7, (i) => _weekStart.add(Duration(days: i)));
-    final monthLabel =
-        DateFormat('MMMM yyyy', 'fr_FR').format(_weekStart);
+    final days = List.generate(7, (i) => _weekStart.add(Duration(days: i)));
+    final monthLabel = DateFormat('MMMM yyyy', 'fr_FR').format(_weekStart);
 
     return Container(
       color: AppTheme.surface,
@@ -253,8 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left,
-                    color: AppTheme.primary),
+                icon: const Icon(Icons.chevron_left, color: AppTheme.primary),
                 onPressed: _prevWeek,
               ),
               Text(
@@ -265,8 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 15),
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right,
-                    color: AppTheme.primary),
+                icon: const Icon(Icons.chevron_right, color: AppTheme.primary),
                 onPressed: _nextWeek,
               ),
             ],
@@ -287,9 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 42,
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppTheme.primary
-                        : Colors.transparent,
+                    color: isSelected ? AppTheme.primary : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -345,9 +357,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final endTime = cls.endTime ?? _computeEndTime(cls.time, cls.duration);
 
     return GestureDetector(
-      onTap: canBook
-          ? () => context.push('/booking/${cls.id}', extra: cls)
-          : null,
+      onTap:
+          canBook ? () => context.push('/booking/${cls.id}', extra: cls) : null,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.surface,
@@ -370,9 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     cls.time,
                     style: TextStyle(
-                      color: isPast
-                          ? AppTheme.onSurfaceMuted
-                          : Colors.white,
+                      color: isPast ? AppTheme.onSurfaceMuted : Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -400,9 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       cls.name,
                       style: TextStyle(
-                        color: isPast
-                            ? AppTheme.onSurfaceMuted
-                            : Colors.white,
+                        color: isPast ? AppTheme.onSurfaceMuted : Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
                       ),
@@ -443,13 +450,13 @@ class _HomeScreenState extends State<HomeScreen> {
               // Badge réservé ou bouton
               if (isReserved)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppTheme.primary.withOpacity(0.4)),
+                    border:
+                        Border.all(color: AppTheme.primary.withOpacity(0.4)),
                   ),
                   child: const Text(
                     'Réservé',
@@ -463,8 +470,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Icon(Icons.lock_clock,
                     color: AppTheme.onSurfaceMuted, size: 20)
               else if (cls.isFull)
-                const Icon(Icons.block,
-                    color: AppTheme.error, size: 20)
+                const Icon(Icons.block, color: AppTheme.error, size: 20)
               else
                 const Icon(Icons.chevron_right,
                     color: AppTheme.primary, size: 24),
@@ -485,10 +491,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 
-  // ─── Onglet Profil/Mes réservations ───────────────────────────────────────
+  // ─── Onglet Profil ───────────────────────────────────────────────────────
 
   Widget _buildMyReservationsTab(ReservationProvider reservationProvider) {
-    final upcoming = reservationProvider.upcomingReservations;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser;
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -499,73 +512,484 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/profile'),
+            icon: const Icon(Icons.logout),
+            onPressed: () => _confirmSignOut(context),
+            tooltip: 'Se déconnecter',
           ),
         ],
       ),
-      body: upcoming.isEmpty
-          ? const Center(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.bookmark_border,
-                      size: 64, color: AppTheme.onSurfaceMuted),
-                  SizedBox(height: 16),
-                  Text('Aucune réservation à venir',
-                      style: TextStyle(
-                          color: AppTheme.onSurfaceMuted, fontSize: 16)),
-                  SizedBox(height: 8),
-                  Text('Réservez un cours depuis le planning',
-                      style: TextStyle(
-                          color: AppTheme.onSurfaceMuted, fontSize: 14)),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: upcoming.length,
-              itemBuilder: (ctx, i) {
-                final res = upcoming[i];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.fitness_center,
-                          color: AppTheme.primary, size: 24),
-                    ),
-                    title: Text(
-                      res.className ?? 'Cours',
+                  CircleAvatar(
+                    radius: 48,
+                    backgroundColor: AppTheme.primary,
+                    child: Text(
+                      '${user.prenom[0]}${user.nom[0]}'.toUpperCase(),
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    subtitle: Text(
-                      res.classDate != null
-                          ? '${DateFormat('EEE dd MMM', 'fr_FR').format(res.classDate!)} à ${res.classTime}'
-                          : '',
-                      style:
-                          const TextStyle(color: AppTheme.onSurfaceMuted),
-                    ),
-                    trailing: TextButton(
-                      onPressed: () => _cancelReservation(
-                          res.id, res.classId, res.className ?? 'ce cours'),
-                      style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.error),
-                      child: const Text('Annuler'),
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                );
-              },
+                  const SizedBox(height: 12),
+                  Text(
+                    user.fullName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email,
+                    style: const TextStyle(color: AppTheme.onSurfaceMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  SubscriptionBadge(user: user),
+                ],
+              ),
             ),
+            const SizedBox(height: 32),
+            _sectionTitle('Informations personnelles'),
+            _infoCard([
+              _infoRow(Icons.person_outline, 'Prénom', user.prenom),
+              _infoRow(Icons.person_outline, 'Nom', user.nom),
+              _infoRow(Icons.email_outlined, 'Email', user.email),
+            ]),
+            const SizedBox(height: 20),
+            _sectionTitle('Abonnement'),
+            _infoCard([
+              _infoRow(
+                Icons.card_membership_outlined,
+                'Statut',
+                user.isSubscriptionExpired ? 'Expiré' : 'Actif',
+                valueColor: user.isSubscriptionExpired
+                    ? AppTheme.error
+                    : AppTheme.success,
+              ),
+              if (user.subscriptionStart != null)
+                _infoRow(
+                  Icons.play_circle_outline,
+                  'Début',
+                  DateFormat('dd/MM/yyyy').format(user.subscriptionStart!),
+                ),
+              if (user.subscriptionEnd != null)
+                _infoRow(
+                  Icons.stop_circle_outlined,
+                  'Expiration',
+                  DateFormat('dd/MM/yyyy').format(user.subscriptionEnd!),
+                  valueColor: user.isSubscriptionExpired
+                      ? AppTheme.error
+                      : user.daysUntilExpiration <= 7
+                          ? AppTheme.warning
+                          : null,
+                ),
+              if (!user.isSubscriptionExpired)
+                _infoRow(
+                  Icons.timer_outlined,
+                  'Jours restants',
+                  '${user.daysUntilExpiration} jour(s)',
+                  valueColor: user.daysUntilExpiration <= 7
+                      ? AppTheme.warning
+                      : AppTheme.success,
+                ),
+            ]),
+            if (user.isSubscriptionExpired)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: AppTheme.error),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Votre abonnement est expiré. Contactez votre administrateur pour le renouveler.',
+                          style: TextStyle(color: AppTheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 20),
+            _sectionTitle('Mes réservations'),
+            _buildCalendar(reservationProvider),
+            const SizedBox(height: 32),
+            OutlinedButton.icon(
+              onPressed: () => _confirmSignOut(context),
+              icon: const Icon(Icons.logout, color: AppTheme.error),
+              label: const Text('Se déconnecter',
+                  style: TextStyle(color: AppTheme.error)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.error),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _infoCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      child: Column(
+        children: children
+            .asMap()
+            .entries
+            .map((entry) => Column(
+                  children: [
+                    entry.value,
+                    if (entry.key < children.length - 1)
+                      const Divider(height: 1, indent: 56),
+                  ],
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value,
+      {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primary, size: 20),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      color: AppTheme.onSurfaceMuted, fontSize: 11)),
+              const SizedBox(height: 2),
+              Text(value,
+                  style: TextStyle(
+                    color: valueColor ?? Colors.white,
+                    fontWeight: FontWeight.w500,
+                  )),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendar(ReservationProvider reservationProvider) {
+    final days = _getDaysInMonth(_currentMonth);
+    final monthFormat = DateFormat('MMMM yyyy', 'fr_FR');
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final reservationsByDate = <String, List<Map<String, String>>>{};
+    for (final res in reservationProvider.userReservations) {
+      if (res.classDate != null && res.classTime != null) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(res.classDate!);
+        if (!reservationsByDate.containsKey(dateKey)) {
+          reservationsByDate[dateKey] = [];
+        }
+        reservationsByDate[dateKey]!.add({
+          'time': res.classTime!,
+          'id': res.id,
+          'classId': res.classId,
+          'name': res.className ?? 'Cours',
+        });
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: AppTheme.primary),
+                onPressed: _previousMonth,
+              ),
+              Text(
+                monthFormat.format(_currentMonth),
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: AppTheme.primary),
+                onPressed: _nextMonth,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.', 'DIM.']
+                .map((day) => SizedBox(
+                      width: 40,
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppTheme.onSurfaceMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 4,
+              mainAxisSpacing: 4,
+            ),
+            itemCount: days.length,
+            itemBuilder: (context, index) {
+              final day = days[index];
+              final isCurrentMonth = day.month == _currentMonth.month;
+              final isToday = day.year == today.year &&
+                  day.month == today.month &&
+                  day.day == today.day;
+              final dateKey = DateFormat('yyyy-MM-dd').format(day);
+              final hasReservations = reservationsByDate.containsKey(dateKey);
+              final reservations = reservationsByDate[dateKey] ?? [];
+
+              return GestureDetector(
+                onTap: hasReservations && isCurrentMonth
+                    ? () => _showDayReservations(day, reservations)
+                    : null,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isToday
+                        ? AppTheme.error.withOpacity(0.2)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (isToday)
+                        Positioned(
+                          top: 2,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.error,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Positioned(
+                          top: 4,
+                          left: 0,
+                          right: 0,
+                          child: Text(
+                            '${day.day}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isCurrentMonth
+                                  ? Colors.white
+                                  : AppTheme.onSurfaceMuted,
+                              fontSize: 12,
+                              fontWeight: isCurrentMonth
+                                  ? FontWeight.w500
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      if (hasReservations && isCurrentMonth)
+                        Positioned(
+                          bottom: 2,
+                          left: 2,
+                          right: 2,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: reservations
+                                .take(2)
+                                .map(
+                                  (res) => Container(
+                                    margin: const EdgeInsets.only(bottom: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.success,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      res['time']!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDayReservations(
+      DateTime day, List<Map<String, String>> reservations) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  DateFormat('EEEE dd MMMM yyyy', 'fr_FR').format(day),
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...reservations.map(
+              (res) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading:
+                      const Icon(Icons.fitness_center, color: AppTheme.primary),
+                  title: Text(
+                    res['name']!,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    res['time']!,
+                    style: const TextStyle(color: AppTheme.onSurfaceMuted),
+                  ),
+                  trailing: TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _cancelReservation(
+                        res['id']!,
+                        res['classId']!,
+                        res['name']!,
+                      );
+                    },
+                    style:
+                        TextButton.styleFrom(foregroundColor: AppTheme.error),
+                    child: const Text('Annuler'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('Se déconnecter'),
+        content: const Text('Voulez-vous vous déconnecter ?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Déconnecter')),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      context.read<ReservationProvider>().reset();
+      await context.read<AuthProvider>().signOut();
+      if (context.mounted) context.go('/login');
+    }
   }
 
   Future<void> _cancelReservation(
@@ -583,8 +1007,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Oui, annuler'),
           ),
         ],

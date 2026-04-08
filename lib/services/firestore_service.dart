@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:pacifitcal/models/user_model.dart';
 import 'package:pacifitcal/models/class_model.dart';
 import 'package:pacifitcal/models/class_template_model.dart';
@@ -93,7 +94,8 @@ class FirestoreService {
   }
 
   Future<String> createClass(ClassModel classModel) async {
-    final docRef = await _db.collection('classes').add(classModel.toFirestore());
+    final docRef =
+        await _db.collection('classes').add(classModel.toFirestore());
     return docRef.id;
   }
 
@@ -188,10 +190,13 @@ class FirestoreService {
     return _db
         .collection('reservations')
         .where('class_id', isEqualTo: classId)
-        .orderBy('created_at')
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => ReservationModel.fromFirestore(d)).toList());
+        .map((snap) {
+      final reservations =
+          snap.docs.map((d) => ReservationModel.fromFirestore(d)).toList();
+      reservations.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return reservations;
+    });
   }
 
   Stream<List<ReservationModel>> streamAllReservations() {
@@ -243,8 +248,8 @@ class FirestoreService {
   Future<String> createTemplate(ClassTemplateModel template) async {
     final docRef =
         await _db.collection('class_templates').add(template.toFirestore());
-    await _generateClassesFromTemplate(
-        template.copyWith(id: docRef.id), weeksAhead: 8);
+    await _generateClassesFromTemplate(template.copyWith(id: docRef.id),
+        weeksAhead: 4);
     return docRef.id;
   }
 
@@ -253,6 +258,53 @@ class FirestoreService {
         .collection('class_templates')
         .doc(template.id)
         .update(template.toFirestore());
+
+    // Mettre à jour toutes les séances futures générées par ce template
+    await _updateFutureClassesFromTemplate(template);
+  }
+
+  /// Met à jour toutes les séances futures d'un template avec les nouvelles données
+  Future<void> _updateFutureClassesFromTemplate(
+      ClassTemplateModel template) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Récupérer toutes les séances de ce template (pas de where sur date pour éviter index composite)
+    final allClassesSnap = await _db
+        .collection('classes')
+        .where('template_id', isEqualTo: template.id)
+        .get();
+
+    // Filtrer en mémoire pour ne garder que les séances futures
+    final futureClasses = allClassesSnap.docs.where((doc) {
+      final data = doc.data();
+      final timestamp = data['date'] as Timestamp;
+      final classDate = timestamp.toDate();
+      final classDateOnly =
+          DateTime(classDate.year, classDate.month, classDate.day);
+      return classDateOnly.isAfter(today) ||
+          classDateOnly.isAtSameMomentAs(today);
+    }).toList();
+
+    if (futureClasses.isEmpty) return;
+
+    // Mettre à jour par batch
+    final batch = _db.batch();
+    for (final doc in futureClasses) {
+      batch.update(doc.reference, {
+        'name': template.name,
+        'time': template.startTime,
+        'end_time': template.endTime,
+        'duration': template.durationMinutes,
+        'max_participants': template.maxParticipants,
+        'coach': template.coach,
+        'description': template.description,
+      });
+    }
+
+    await batch.commit();
+    debugPrint(
+        '✅ ${futureClasses.length} séance(s) future(s) mise(s) à jour pour ${template.name}');
   }
 
   Future<void> deleteTemplate(String templateId) async {
@@ -286,8 +338,7 @@ class FirestoreService {
     for (int week = 0; week < weeksAhead; week++) {
       // Trouver la prochaine occurrence du jour de semaine
       int daysUntil = (template.dayOfWeek - today.weekday) % 7;
-      final targetDate =
-          today.add(Duration(days: daysUntil + (week * 7)));
+      final targetDate = today.add(Duration(days: daysUntil + (week * 7)));
 
       // Vérifier qu'un cours n'existe pas déjà pour ce template/date
       final existing = await _db
@@ -323,6 +374,87 @@ class FirestoreService {
     final template = await getTemplate(templateId);
     if (template != null) {
       await _generateClassesFromTemplate(template, weeksAhead: weeksAhead);
+    }
+  }
+
+  /// Maintient automatiquement un mois glissant (4 semaines) de séances pour tous les templates actifs
+  /// Cette fonction doit être appelée régulièrement (ex: au chargement de l'écran admin)
+  Future<void> maintainRollingMonthClasses() async {
+    try {
+      // Récupérer tous les templates actifs
+      final templatesSnap = await _db
+          .collection('class_templates')
+          .where('active', isEqualTo: true)
+          .get();
+
+      if (templatesSnap.docs.isEmpty) return;
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final fourWeeksAhead = today.add(const Duration(days: 28)); // 4 semaines
+
+      for (final templateDoc in templatesSnap.docs) {
+        final template = ClassTemplateModel.fromFirestore(templateDoc);
+
+        // Récupérer toutes les séances de ce template (pas de where sur date pour éviter index composite)
+        final allClassesSnap = await _db
+            .collection('classes')
+            .where('template_id', isEqualTo: template.id)
+            .get();
+
+        // Filtrer en mémoire pour ne garder que les séances futures et extraire les dates
+        final existingDates = allClassesSnap.docs
+            .map((doc) {
+              final data = doc.data();
+              final timestamp = data['date'] as Timestamp;
+              final date = timestamp.toDate();
+              return DateTime(date.year, date.month, date.day);
+            })
+            .where(
+                (date) => date.isAfter(today) || date.isAtSameMomentAs(today))
+            .toSet();
+
+        // Générer les séances manquantes pour les 4 prochaines semaines
+        final batch = _db.batch();
+        int generatedCount = 0;
+
+        for (int week = 0; week < 4; week++) {
+          // Calculer la date cible pour cette semaine
+          int daysUntil = (template.dayOfWeek - today.weekday) % 7;
+          if (daysUntil == 0 && week == 0)
+            daysUntil = 7; // Si c'est aujourd'hui, prendre la semaine prochaine
+          final targetDate = today.add(Duration(days: daysUntil + (week * 7)));
+
+          // Ne générer que si la date est dans les 4 semaines et n'existe pas déjà
+          if (targetDate.isBefore(fourWeeksAhead) ||
+              targetDate.isAtSameMomentAs(fourWeeksAhead)) {
+            if (!existingDates.contains(targetDate)) {
+              final classRef = _db.collection('classes').doc();
+              batch.set(classRef, {
+                'name': template.name,
+                'date': Timestamp.fromDate(targetDate),
+                'time': template.startTime,
+                'end_time': template.endTime,
+                'duration': template.durationMinutes,
+                'max_participants': template.maxParticipants,
+                'current_participants': 0,
+                'coach': template.coach,
+                'description': template.description,
+                'template_id': template.id,
+              });
+              generatedCount++;
+            }
+          }
+        }
+
+        if (generatedCount > 0) {
+          await batch.commit();
+          debugPrint(
+              '✅ Généré $generatedCount séance(s) pour ${template.name}');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur lors de la maintenance des séances: $e');
     }
   }
 }

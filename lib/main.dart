@@ -14,10 +14,18 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR', null);
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  await NotificationService().initialize();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    // NotificationService désactivé temporairement (nécessite Google Play Services)
+    // await NotificationService().initialize();
+  } catch (e, stackTrace) {
+    print('❌ Erreur Firebase: $e');
+    print('StackTrace: $stackTrace');
+  }
+
   runApp(const PacifitCalApp());
 }
 
