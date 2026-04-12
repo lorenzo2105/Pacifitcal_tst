@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:intl/intl.dart';
 import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/models/user_model.dart';
 import 'package:pacifitcal/services/firestore_service.dart';
+import 'package:intl/intl.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -52,17 +52,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary));
+                      child:
+                          CircularProgressIndicator(color: AppTheme.primary));
                 }
                 if (snap.hasError) {
                   return Center(child: Text('Erreur: ${snap.error}'));
                 }
 
                 var users = snap.data ?? [];
-                print('DEBUG: Total users from Firestore: ${users.length}');
+                if (kDebugMode) {
+                  print('DEBUG: Total users from Firestore: ${users.length}');
+                }
                 users = users.where((u) => !u.isAdmin).toList();
-                print('DEBUG: Non-admin users: ${users.length}');
+                if (kDebugMode) {
+                  print('DEBUG: Non-admin users: ${users.length}');
+                }
 
                 if (_searchQuery.isNotEmpty) {
                   users = users
@@ -82,16 +86,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         SizedBox(height: 16),
                         Text('Aucun adhérent',
                             style: TextStyle(
-                                color: AppTheme.onSurfaceMuted,
-                                fontSize: 16)),
+                                color: AppTheme.onSurfaceMuted, fontSize: 16)),
                       ],
                     ),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: users.length,
                   itemBuilder: (ctx, i) => _userCard(context, users[i]),
                 );
@@ -179,8 +182,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -199,9 +202,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       GestureDetector(
                         onTap: () => _toggleActive(user),
                         child: Icon(
-                          user.active
-                              ? Icons.toggle_on
-                              : Icons.toggle_off,
+                          user.active ? Icons.toggle_on : Icons.toggle_off,
                           color: user.active
                               ? AppTheme.success
                               : AppTheme.onSurfaceMuted,
@@ -230,10 +231,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              '${user.fullName} ${!user.active ? 'activé' : 'désactivé'}'),
-          backgroundColor:
-              !user.active ? AppTheme.success : AppTheme.warning,
+          content:
+              Text('${user.fullName} ${!user.active ? 'activé' : 'désactivé'}'),
+          backgroundColor: !user.active ? AppTheme.success : AppTheme.warning,
         ),
       );
     }
@@ -253,8 +253,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.error),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Supprimer'),
           ),
         ],
@@ -264,15 +263,31 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       try {
         // Supprimer de Firestore + réservations
         await _firestoreService.deleteUser(user.id);
-        // Supprimer de Firebase Auth via Cloud Function
-        final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
-            .httpsCallable('deleteUser');
-        await callable.call({'uid': user.id});
+
+        // TODO: Activer suppression Firebase Auth quand plan Blaze activé
+        // Nécessite: firebase deploy --only functions (plan Blaze requis)
+        // Code à décommenter après upgrade:
+        // final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
+        //     .httpsCallable('deleteUser');
+        // await callable.call({'uid': user.id});
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${user.fullName} supprimé'),
-              backgroundColor: AppTheme.error,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${user.fullName} supprimé de Firestore'),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '⚠️ Supprimez-le aussi manuellement dans Firebase Auth',
+                    style: TextStyle(fontSize: 12, color: Colors.white70),
+                  ),
+                ],
+              ),
+              backgroundColor: AppTheme.warning,
+              duration: const Duration(seconds: 4),
             ),
           );
         }

@@ -7,6 +7,7 @@ import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/models/class_model.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
 import 'package:pacifitcal/providers/reservation_provider.dart';
+import 'package:pacifitcal/utils/error_handler.dart';
 
 class BookingDetailScreen extends StatelessWidget {
   final ClassModel classModel;
@@ -18,9 +19,6 @@ class BookingDetailScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final reservationProvider = context.watch<ReservationProvider>();
     final isReserved = reservationProvider.isReserved(classModel.id);
-    final reservation = reservationProvider.userReservations
-        .where((r) => r.classId == classModel.id)
-        .firstOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,8 +72,8 @@ class BookingDetailScreen extends StatelessWidget {
                   if (classModel.coach != null)
                     Text(
                       'Coach: ${classModel.coach}',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 14),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                 ],
               ),
@@ -147,28 +145,37 @@ class BookingDetailScreen extends StatelessWidget {
                     AppTheme.success,
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: reservationProvider.isLoading
-                        ? null
-                        : () => _cancelReservation(
-                              context,
-                              reservation!.id,
-                              auth.currentUser!.id,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border:
+                          Border.all(color: AppTheme.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline,
+                            color: AppTheme.primary, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Pour annuler cette réservation, rendez-vous dans votre profil',
+                            style: TextStyle(
+                              color: AppTheme.primary.withOpacity(0.9),
+                              fontSize: 13,
                             ),
-                    icon: const Icon(Icons.cancel_outlined,
-                        color: AppTheme.error),
-                    label: const Text('Annuler ma réservation',
-                        style: TextStyle(color: AppTheme.error)),
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.error)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               )
             else
               reservationProvider.isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary))
+                      child: CircularProgressIndicator(color: AppTheme.primary))
                   : ElevatedButton.icon(
                       onPressed: () => _reserve(context, auth),
                       icon: const Icon(Icons.add_circle_outline),
@@ -255,60 +262,11 @@ class BookingDetailScreen extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        final error = context.read<ReservationProvider>().error ?? e.toString();
+        final error = context.read<ReservationProvider>().error ??
+            ErrorHandler.mapReservationError(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error), backgroundColor: AppTheme.error),
         );
-      }
-    }
-  }
-
-  Future<void> _cancelReservation(
-      BuildContext context, String reservationId, String userId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surface,
-        title: const Text('Annuler la réservation'),
-        content: Text('Annuler votre réservation pour ${classModel.name} ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Non'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
-            child: const Text('Oui, annuler'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        await context.read<ReservationProvider>().cancel(
-              reservationId: reservationId,
-              classId: classModel.id,
-              userId: userId,
-              className: classModel.name,
-            );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Réservation annulée'),
-              backgroundColor: AppTheme.warning,
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(e.toString()),
-                backgroundColor: AppTheme.error),
-          );
-        }
       }
     }
   }

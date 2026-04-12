@@ -18,6 +18,7 @@ dependencies:
   firebase_core: ^2.24.2
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.14.0
+  firebase_app_check: ^0.2.1+7  # Protection anti-bot et CSRF
   # firebase_messaging: ^14.7.9  # Temporairement désactivé - nécessite Google Play Services
   # firebase_analytics: ^10.8.0  # Temporairement désactivé - cause crash dans émulateur
   cloud_functions: ^4.6.0

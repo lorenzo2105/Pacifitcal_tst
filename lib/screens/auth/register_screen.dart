@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
+import 'package:pacifitcal/utils/error_handler.dart';
+import 'package:pacifitcal/utils/validators.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -55,7 +57,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.read<AuthProvider>().error ?? e.toString()),
+            content: Text(
+              context.read<AuthProvider>().error ??
+                  ErrorHandler.getUserMessage(e),
+            ),
             backgroundColor: AppTheme.error,
           ),
         );
@@ -134,11 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email requis';
-                    if (!v.contains('@')) return 'Email invalide';
-                    return null;
-                  },
+                  validator: Validators.validateEmail,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -147,6 +148,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Mot de passe',
+                    helperText: '12+ caractères, maj/min/chiffre/spécial',
+                    helperMaxLines: 2,
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword
@@ -156,11 +159,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Requis';
-                    if (v.length < 6) return 'Minimum 6 caractères';
-                    return null;
-                  },
+                  validator: Validators.validatePassword,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -190,8 +189,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 32),
                 _isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                            color: AppTheme.primary))
+                        child:
+                            CircularProgressIndicator(color: AppTheme.primary))
                     : ElevatedButton(
                         onPressed: _register,
                         child: const Text('Créer mon compte'),

@@ -136,35 +136,49 @@ class FirestoreService {
     required String userName,
     required ClassModel classModel,
   }) async {
+    // Vérification préalable de la double réservation
     final alreadyBooked = await hasReservation(userId, classModel.id);
     if (alreadyBooked) throw Exception('Vous avez déjà réservé ce cours.');
 
-    final classDoc = await _db.collection('classes').doc(classModel.id).get();
-    final classData = classDoc.data()!;
-    final current = classData['current_participants'] as int? ?? 0;
-    final max = classData['max_participants'] as int? ?? 0;
-    if (current >= max) throw Exception('Ce cours est complet.');
+    // Transaction atomique pour éviter la race condition
+    return _db.runTransaction<ReservationModel>((transaction) async {
+      final classRef = _db.collection('classes').doc(classModel.id);
+      final classDoc = await transaction.get(classRef);
 
-    final batch = _db.batch();
-    final reservationRef = _db.collection('reservations').doc();
-    final reservation = ReservationModel(
-      id: reservationRef.id,
-      userId: userId,
-      classId: classModel.id,
-      createdAt: DateTime.now(),
-      userName: userName,
-      className: classModel.name,
-      classDate: classModel.date,
-      classTime: classModel.time,
-    );
+      if (!classDoc.exists) {
+        throw Exception('Ce cours n\'existe plus.');
+      }
 
-    batch.set(reservationRef, reservation.toFirestore());
-    batch.update(_db.collection('classes').doc(classModel.id), {
-      'current_participants': FieldValue.increment(1),
+      final classData = classDoc.data()!;
+      final current = classData['current_participants'] as int? ?? 0;
+      final max = classData['max_participants'] as int? ?? 0;
+
+      // Vérification atomique : si complet, la transaction échoue
+      if (current >= max) {
+        throw Exception('Ce cours est complet.');
+      }
+
+      // Créer la réservation
+      final reservationRef = _db.collection('reservations').doc();
+      final reservation = ReservationModel(
+        id: reservationRef.id,
+        userId: userId,
+        classId: classModel.id,
+        createdAt: DateTime.now(),
+        userName: userName,
+        className: classModel.name,
+        classDate: classModel.date,
+        classTime: classModel.time,
+      );
+
+      // Opérations atomiques : tout ou rien
+      transaction.set(reservationRef, reservation.toFirestore());
+      transaction.update(classRef, {
+        'current_participants': FieldValue.increment(1),
+      });
+
+      return reservation;
     });
-
-    await batch.commit();
-    return reservation;
   }
 
   Future<void> cancelReservation(String reservationId, String classId) async {

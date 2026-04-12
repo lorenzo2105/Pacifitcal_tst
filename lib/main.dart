@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +9,7 @@ import 'package:pacifitcal/config/routes.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
 import 'package:pacifitcal/providers/class_provider.dart';
 import 'package:pacifitcal/providers/reservation_provider.dart';
-import 'package:pacifitcal/services/notification_service.dart';
+import 'package:pacifitcal/services/app_check_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -19,11 +20,17 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Initialiser Firebase App Check (protection anti-bot/CSRF)
+    await AppCheckService.initialize();
+
     // NotificationService désactivé temporairement (nécessite Google Play Services)
     // await NotificationService().initialize();
   } catch (e, stackTrace) {
-    print('❌ Erreur Firebase: $e');
-    print('StackTrace: $stackTrace');
+    if (kDebugMode) {
+      print('❌ Erreur Firebase: $e');
+      print('StackTrace: $stackTrace');
+    }
   }
 
   runApp(const PacifitCalApp());

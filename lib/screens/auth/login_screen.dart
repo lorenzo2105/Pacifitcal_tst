@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
+import 'package:pacifitcal/services/rate_limiter_service.dart';
+import 'package:pacifitcal/utils/error_handler.dart';
+import 'package:pacifitcal/utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +22,25 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Afficher le message d'erreur si un compte désactivé a été détecté
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error!),
+            backgroundColor: AppTheme.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        authProvider.clearError();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -27,18 +49,53 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    try {
-      await context.read<AuthProvider>().signIn(
-            _emailCtrl.text.trim(),
-            _passwordCtrl.text,
-          );
-    } catch (e) {
+
+    final email = _emailCtrl.text.trim();
+
+    // Vérifier si l'utilisateur est bloqué (rate limiting)
+    final blockStatus = await RateLimiterService.checkBlock(email);
+    if (blockStatus.isBlocked) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.read<AuthProvider>().error ?? e.toString()),
+            content: Text(
+              '🔒 Trop de tentatives échouées. '
+              'Réessayez dans ${blockStatus.remainingMinutes} minute(s).',
+            ),
             backgroundColor: AppTheme.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await context.read<AuthProvider>().signIn(email, _passwordCtrl.text);
+
+      // Connexion réussie : réinitialiser les tentatives
+      await RateLimiterService.resetAttempts(email);
+    } catch (e) {
+      // Connexion échouée : enregistrer la tentative
+      final attempts = await RateLimiterService.recordFailedAttempt(email);
+      final remaining = RateLimiterService.maxAttempts - attempts;
+
+      if (mounted) {
+        // Mapper l'erreur à un message utilisateur sécurisé
+        String errorMessage = context.read<AuthProvider>().error ??
+            ErrorHandler.getUserMessage(e);
+
+        // Ajouter avertissement si proche du blocage
+        if (remaining > 0 && remaining <= 2) {
+          errorMessage += '\n⚠️ $remaining tentative(s) restante(s).';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppTheme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -109,11 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Email requis';
-                        if (!v.contains('@')) return 'Email invalide';
-                        return null;
-                      },
+                      validator: Validators.validateEmail,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -134,11 +187,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               () => _obscurePassword = !_obscurePassword),
                         ),
                       ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Mot de passe requis';
-                        if (v.length < 6) return 'Minimum 6 caractères';
-                        return null;
-                      },
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Mot de passe requis' : null,
                     ),
                     const SizedBox(height: 32),
                     _isLoading

@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:pacifitcal/models/class_model.dart';
 import 'package:pacifitcal/models/reservation_model.dart';
 import 'package:pacifitcal/services/firestore_service.dart';
-import 'package:pacifitcal/services/notification_service.dart';
-import 'package:intl/intl.dart';
 
 class ReservationProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
@@ -25,14 +23,24 @@ class ReservationProvider extends ChangeNotifier {
   bool isReserved(String classId) => _reservedClassIds.contains(classId);
 
   void startListeningUserReservations(String userId) {
+    if (kDebugMode) {
+      print('🔄 Démarrage du stream de réservations');
+    }
     _userResSub?.cancel();
     _userResSub = _firestoreService.streamUserReservations(userId).listen(
       (reservations) {
+        if (kDebugMode) {
+          print(
+              '✅ Stream réservations reçu: ${reservations.length} réservation(s)');
+        }
         _userReservations = reservations;
         _reservedClassIds = reservations.map((r) => r.classId).toList();
         notifyListeners();
       },
       onError: (e) {
+        if (kDebugMode) {
+          print('❌ Erreur stream réservations: $e');
+        }
         _error = e.toString();
         notifyListeners();
       },
@@ -48,20 +56,15 @@ class ReservationProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      await _firestoreService.createReservation(
+      final reservation = await _firestoreService.createReservation(
         userId: userId,
         userName: userName,
         classModel: classModel,
       );
 
-      final dateStr = DateFormat('dd/MM/yyyy').format(classModel.date);
-      await NotificationService.sendReservationConfirmation(
-        userId: userId,
-        className: classModel.name,
-        classDate: dateStr,
-        classTime: classModel.time,
-      );
-
+      // Mise à jour optimiste : ajouter immédiatement la réservation localement
+      // avant que le stream Firestore ne se mette à jour (pour affichage immédiat)
+      _userReservations.add(reservation);
       _reservedClassIds.add(classModel.id);
       notifyListeners();
     } catch (e) {
@@ -84,10 +87,9 @@ class ReservationProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _firestoreService.cancelReservation(reservationId, classId);
-      await NotificationService.sendCancellationNotification(
-        userId: userId,
-        className: className,
-      );
+
+      // Mise à jour optimiste : retirer immédiatement la réservation localement
+      _userReservations.removeWhere((r) => r.id == reservationId);
       _reservedClassIds.remove(classId);
       notifyListeners();
     } catch (e) {

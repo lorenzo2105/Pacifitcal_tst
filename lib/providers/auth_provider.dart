@@ -3,11 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pacifitcal/models/user_model.dart';
 import 'package:pacifitcal/services/auth_service.dart';
-import 'package:pacifitcal/services/notification_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
-  final NotificationService _notificationService = NotificationService();
 
   UserModel? _currentUser;
   bool _isLoading = true;
@@ -32,33 +30,45 @@ class AuthProvider extends ChangeNotifier {
         (user) async {
           try {
             if (user != null) {
-              _currentUser = await _authService.getUserData(user.uid);
-              // NotificationService désactivé temporairement
-              // if (_currentUser != null) {
-              //   final token = await _notificationService.getToken();
-              //   if (token != null) {
-              //     await _authService.updateFcmToken(user.uid, token);
-              //   }
-              // }
+              final userData = await _authService.getUserData(user.uid);
+
+              // Vérifier si le compte est désactivé
+              if (userData != null && !userData.active) {
+                if (kDebugMode) {
+                  print('⚠️ Compte désactivé détecté, déconnexion...');
+                }
+                await _authService.signOut();
+                _currentUser = null;
+                _error =
+                    'Votre compte a été désactivé. Contactez l\'administrateur.';
+              } else {
+                _currentUser = userData;
+              }
             } else {
               _currentUser = null;
             }
           } catch (e) {
-            print('❌ Erreur lors du chargement des données utilisateur: $e');
+            if (kDebugMode) {
+              print('❌ Erreur lors du chargement des données utilisateur: $e');
+            }
             _currentUser = null;
           }
           _isLoading = false;
           notifyListeners();
         },
         onError: (error) {
-          print('❌ Erreur dans le stream d\'authentification: $error');
+          if (kDebugMode) {
+            print('❌ Erreur dans le stream d\'authentification: $error');
+          }
           _isLoading = false;
           _currentUser = null;
           notifyListeners();
         },
       );
     } catch (e) {
-      print('❌ Erreur lors de l\'initialisation de l\'authentification: $e');
+      if (kDebugMode) {
+        print('❌ Erreur lors de l\'initialisation de l\'authentification: $e');
+      }
       _isLoading = false;
       notifyListeners();
     }
@@ -112,7 +122,17 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> refreshUser() async {
     if (_currentUser == null) return;
-    _currentUser = await _authService.getUserData(_currentUser!.id);
+    try {
+      final updatedUser = await _authService.getUserData(_currentUser!.id);
+      if (updatedUser != null) {
+        _currentUser = updatedUser;
+      }
+    } catch (e) {
+      // Ignorer les erreurs de refresh, les données seront mises à jour au prochain authStateChanges
+      if (kDebugMode) {
+        debugPrint('⚠️ Erreur refresh user: $e');
+      }
+    }
     notifyListeners();
   }
 

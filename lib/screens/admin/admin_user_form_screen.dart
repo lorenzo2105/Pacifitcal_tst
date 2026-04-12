@@ -1,4 +1,6 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/models/user_model.dart';
 import 'package:pacifitcal/services/firestore_service.dart';
+import 'package:pacifitcal/utils/validators.dart';
 
 class AdminUserFormScreen extends StatefulWidget {
   final String? userId;
@@ -28,8 +31,17 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
   bool _active = true;
   bool _isLoading = false;
   UserModel? _existingUser;
+  String? _generatedPassword;
 
   bool get isEditing => widget.userId != null;
+
+  String _generateTemporaryPassword() {
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*';
+    final random = Random.secure();
+    return List.generate(12, (index) => chars[random.nextInt(chars.length)])
+        .join();
+  }
 
   @override
   void initState() {
@@ -101,14 +113,19 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
 
         final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
 
+        // Générer un mot de passe temporaire fort
+        final tempPassword = _generateTemporaryPassword();
+        _generatedPassword = tempPassword;
+
         // Créer le nouvel utilisateur dans l'app secondaire (l'admin reste connecté)
         // Note: bug connu firebase_auth avec instances secondaires (PigeonUserDetails cast error)
         // L'utilisateur est bien créé dans Auth même si une exception est levée
         String? newUserId;
         try {
-          final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+          final userCredential =
+              await secondaryAuth.createUserWithEmailAndPassword(
             email: _emailCtrl.text.trim(),
-            password: _passwordCtrl.text,
+            password: tempPassword,
           );
           newUserId = userCredential.user!.uid;
         } catch (e) {
@@ -132,21 +149,26 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
           active: _active,
           subscriptionStart: _subscriptionStart,
           subscriptionEnd: subscriptionEnd,
+          weakPassword: true, // Forcer changement au premier login
         );
 
         await _firestoreService.createUser(newUser);
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isEditing
-                ? 'Adhérent mis à jour !'
-                : 'Adhérent créé !'),
-            backgroundColor: AppTheme.success,
-          ),
-        );
-        context.pop();
+        if (!isEditing && _generatedPassword != null) {
+          // Afficher le mot de passe temporaire à l'admin
+          _showPasswordDialog(_generatedPassword!);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(isEditing ? 'Adhérent mis à jour !' : 'Adhérent créé !'),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+          context.pop();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -160,6 +182,87 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showPasswordDialog(String password) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Adhérent créé !',
+          style:
+              TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mot de passe temporaire généré :',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      password,
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: AppTheme.primary),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: password));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Mot de passe copié !'),
+                          backgroundColor: AppTheme.success,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    tooltip: 'Copier',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '⚠️ Communiquez ce mot de passe à l\'adhérent par email ou SMS sécurisé.',
+              style: TextStyle(color: AppTheme.warning, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Au premier login, l\'adhérent sera forcé de changer son mot de passe.',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.pop();
+            },
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -193,7 +296,7 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
                             decoration:
                                 const InputDecoration(labelText: 'Prénom'),
                             validator: (v) =>
-                                v == null || v.isEmpty ? 'Requis' : null,
+                                Validators.validateName(v, fieldName: 'Prénom'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -201,10 +304,9 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
                           child: TextFormField(
                             controller: _nomCtrl,
                             textCapitalization: TextCapitalization.words,
-                            decoration:
-                                const InputDecoration(labelText: 'Nom'),
+                            decoration: const InputDecoration(labelText: 'Nom'),
                             validator: (v) =>
-                                v == null || v.isEmpty ? 'Requis' : null,
+                                Validators.validateName(v, fieldName: 'Nom'),
                           ),
                         ),
                       ],
@@ -218,35 +320,37 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
                         labelText: 'Email',
                         prefixIcon: const Icon(Icons.email_outlined),
                         filled: isEditing,
-                        fillColor: isEditing
-                            ? AppTheme.surfaceVariant
-                            : null,
+                        fillColor: isEditing ? AppTheme.surfaceVariant : null,
                       ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Requis';
-                        if (!v.contains('@')) return 'Email invalide';
-                        return null;
-                      },
+                      validator: Validators.validateEmail,
                     ),
-                    if (!isEditing) ...[
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordCtrl,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Mot de passe',
-                          prefixIcon: Icon(Icons.lock_outlined),
+                    const SizedBox(height: 16),
+                    if (!isEditing)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: AppTheme.primary.withOpacity(0.3)),
                         ),
-                        validator: (v) {
-                          if (!isEditing) {
-                            if (v == null || v.isEmpty) return 'Requis';
-                            if (v.length < 6)
-                              return 'Minimum 6 caractères';
-                          }
-                          return null;
-                        },
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outline,
+                                color: AppTheme.primary, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Un mot de passe temporaire sera généré automatiquement',
+                                style: TextStyle(
+                                  color: AppTheme.primary.withOpacity(0.9),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
                     const SizedBox(height: 24),
                     _sectionTitle('Abonnement'),
                     const SizedBox(height: 12),
@@ -287,10 +391,11 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
                         title: const Text('Compte actif',
                             style: TextStyle(color: Colors.white)),
                         subtitle: Text(
-                          _active ? 'L\'adhérent peut se connecter' : 'L\'adhérent ne peut pas se connecter',
+                          _active
+                              ? 'L\'adhérent peut se connecter'
+                              : 'L\'adhérent ne peut pas se connecter',
                           style: const TextStyle(
-                              color: AppTheme.onSurfaceMuted,
-                              fontSize: 12),
+                              color: AppTheme.onSurfaceMuted, fontSize: 12),
                         ),
                         value: _active,
                         activeColor: AppTheme.success,
@@ -305,8 +410,9 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
                         : ElevatedButton.icon(
                             onPressed: _save,
                             icon: Icon(isEditing ? Icons.save : Icons.add),
-                            label: Text(
-                                isEditing ? 'Mettre à jour' : 'Créer l\'adhérent'),
+                            label: Text(isEditing
+                                ? 'Mettre à jour'
+                                : 'Créer l\'adhérent'),
                           ),
                   ],
                 ),
@@ -351,16 +457,16 @@ class _AdminUserFormScreenState extends State<AdminUserFormScreen> {
                   isSelected
                       ? Icons.radio_button_checked
                       : Icons.radio_button_off,
-                  color: isSelected ? AppTheme.primary : AppTheme.onSurfaceMuted,
+                  color:
+                      isSelected ? AppTheme.primary : AppTheme.onSurfaceMuted,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   label,
                   style: TextStyle(
                     color: isSelected ? AppTheme.primary : Colors.white,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ],

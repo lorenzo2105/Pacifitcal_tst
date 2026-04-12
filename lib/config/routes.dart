@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
 import 'package:pacifitcal/screens/auth/login_screen.dart';
 import 'package:pacifitcal/screens/auth/register_screen.dart';
+import 'package:pacifitcal/screens/auth/change_password_screen.dart';
 import 'package:pacifitcal/screens/user/home_screen.dart';
 import 'package:pacifitcal/screens/user/profile_screen.dart';
 import 'package:pacifitcal/screens/user/booking_detail_screen.dart';
@@ -26,6 +27,7 @@ class AppRouter {
         final isLoggedIn = authProvider.isAuthenticated;
         final isAdmin = authProvider.isAdmin;
         final isExpired = authProvider.isSubscriptionExpired;
+        final hasWeakPassword = authProvider.currentUser?.weakPassword ?? false;
         final path = state.matchedLocation;
 
         if (path == '/splash') return null;
@@ -33,6 +35,11 @@ class AppRouter {
         if (!isLoggedIn) {
           if (path == '/login' || path == '/register') return null;
           return '/login';
+        }
+
+        // Forcer le changement de mot de passe si weak_password = true
+        if (hasWeakPassword && path != '/change-password') {
+          return '/change-password';
         }
 
         if (isExpired && !isAdmin) {
@@ -62,6 +69,11 @@ class AppRouter {
         GoRoute(
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
+        ),
+        GoRoute(
+          path: '/change-password',
+          builder: (context, state) =>
+              const ChangePasswordScreen(mandatory: true),
         ),
         GoRoute(
           path: '/home',

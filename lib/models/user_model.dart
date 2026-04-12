@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pacifitcal/utils/schema_version.dart';
 
 enum UserRole { user, admin }
+
 enum SubscriptionType { oneMonth, sixMonths, twelveMonths }
 
 class UserModel {
@@ -13,6 +15,8 @@ class UserModel {
   final DateTime? subscriptionEnd;
   final bool active;
   final String? fcmToken;
+  final bool weakPassword;
+  final int schemaVersion;
 
   UserModel({
     required this.id,
@@ -24,6 +28,8 @@ class UserModel {
     this.subscriptionEnd,
     required this.active,
     this.fcmToken,
+    this.weakPassword = false,
+    this.schemaVersion = SchemaVersion.userModelVersion,
   });
 
   bool get isAdmin => role == UserRole.admin;
@@ -45,20 +51,32 @@ class UserModel {
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final storedVersion = SchemaVersion.getVersion(data);
+
+    // Migration automatique si nécessaire
+    final migratedData = SchemaVersion.needsMigration(
+      storedVersion,
+      SchemaVersion.userModelVersion,
+    )
+        ? SchemaVersion.migrateUserData(data, storedVersion)
+        : data;
     return UserModel(
       id: doc.id,
-      nom: data['nom'] ?? '',
-      prenom: data['prenom'] ?? '',
-      email: data['email'] ?? '',
-      role: data['role'] == 'admin' ? UserRole.admin : UserRole.user,
-      subscriptionStart: data['subscription_start'] != null
-          ? (data['subscription_start'] as Timestamp).toDate()
+      nom: migratedData['nom'] ?? '',
+      prenom: migratedData['prenom'] ?? '',
+      email: migratedData['email'] ?? '',
+      role: migratedData['role'] == 'admin' ? UserRole.admin : UserRole.user,
+      subscriptionStart: migratedData['subscription_start'] != null
+          ? (migratedData['subscription_start'] as Timestamp).toDate()
           : null,
-      subscriptionEnd: data['subscription_end'] != null
-          ? (data['subscription_end'] as Timestamp).toDate()
+      subscriptionEnd: migratedData['subscription_end'] != null
+          ? (migratedData['subscription_end'] as Timestamp).toDate()
           : null,
-      active: data['active'] ?? true,
-      fcmToken: data['fcm_token'],
+      active: migratedData['active'] ?? true,
+      fcmToken: migratedData['fcm_token'],
+      weakPassword: migratedData['weak_password'] ?? false,
+      schemaVersion:
+          migratedData['schema_version'] ?? SchemaVersion.userModelVersion,
     );
   }
 
@@ -71,11 +89,12 @@ class UserModel {
       'subscription_start': subscriptionStart != null
           ? Timestamp.fromDate(subscriptionStart!)
           : null,
-      'subscription_end': subscriptionEnd != null
-          ? Timestamp.fromDate(subscriptionEnd!)
-          : null,
+      'subscription_end':
+          subscriptionEnd != null ? Timestamp.fromDate(subscriptionEnd!) : null,
       'active': active,
       'fcm_token': fcmToken,
+      'weak_password': weakPassword,
+      'schema_version': schemaVersion,
     };
   }
 
@@ -89,6 +108,8 @@ class UserModel {
     DateTime? subscriptionEnd,
     bool? active,
     String? fcmToken,
+    bool? weakPassword,
+    int? schemaVersion,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -100,6 +121,8 @@ class UserModel {
       subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
       active: active ?? this.active,
       fcmToken: fcmToken ?? this.fcmToken,
+      weakPassword: weakPassword ?? this.weakPassword,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
     );
   }
 

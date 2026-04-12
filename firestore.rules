@@ -18,16 +18,38 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isActiveUser() {
-      return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
-    }
-
     function hasValidSubscription() {
       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return user.active == true &&
              user.subscription_end != null &&
              user.subscription_end > request.time;
+    }
+
+    // Validation des champs utilisateur
+    function isValidUserData(data) {
+      return data.keys().hasAll(['email', 'nom', 'prenom', 'role', 'active']) &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.nom is string && data.nom.size() >= 2 && data.nom.size() <= 50 &&
+             data.prenom is string && data.prenom.size() >= 2 && data.prenom.size() <= 50 &&
+             data.role in ['admin', 'user'] &&
+             data.active is bool;
+    }
+
+    // Validation des champs de classe
+    function isValidClassData(data) {
+      return data.keys().hasAll(['name', 'date', 'time', 'max_participants', 'current_participants']) &&
+             data.name is string && data.name.size() >= 3 && data.name.size() <= 100 &&
+             data.max_participants is int && data.max_participants > 0 && data.max_participants <= 50 &&
+             data.current_participants is int && data.current_participants >= 0 &&
+             data.current_participants <= data.max_participants;
+    }
+
+    // Validation des champs de réservation
+    function isValidReservationData(data) {
+      return data.keys().hasAll(['user_id', 'class_id', 'created_at']) &&
+             data.user_id is string && data.user_id.size() > 0 &&
+             data.class_id is string && data.class_id.size() > 0 &&
+             data.created_at is timestamp;
     }
 
     // ─── Collection : users ───────────────────────────────────────────────
@@ -38,15 +60,17 @@ service cloud.firestore {
 
       // Création : l'utilisateur peut créer son propre document OU un admin peut créer n'importe quel document
       // On permet la création si l'utilisateur authentifié crée son propre document (userId == request.auth.uid)
-      allow create: if isAuthenticated() && (isOwner(userId) || 
+      allow create: if isAuthenticated() && 
+        isValidUserData(request.resource.data) &&
+        (isOwner(userId) || 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
 
-      // Mise à jour : l'utilisateur peut mettre à jour son FCM token uniquement
-      // L'admin peut tout modifier
-      allow update: if isAdmin() ||
+      // Mise à jour : l'utilisateur peut mettre à jour son FCM token et weak_password uniquement
+      // L'admin peut tout modifier (avec validation)
+      allow update: if (isAdmin() && isValidUserData(request.resource.data)) ||
         (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['fcm_token']));
+          .hasOnly(['fcm_token', 'weak_password']));
 
       // Suppression : uniquement par un admin
       allow delete: if isAdmin();
@@ -64,17 +88,13 @@ service cloud.firestore {
       // Lecture : tout utilisateur authentifié
       allow read: if isAuthenticated();
 
-      // Création / Modification / Suppression : uniquement admin
-      allow create, update, delete: if isAdmin();
-
-      // Exception : mise à jour du compteur de participants
-      // - Incrémentation : utilisateur avec abonnement valide (création de réservation)
-      // - Décrémentation : tout utilisateur authentifié (annulation de réservation)
-      allow update: if isAuthenticated() &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['current_participants']) &&
-        (hasValidSubscription() || 
-         request.resource.data.current_participants < resource.data.current_participants);
+      // Création / Modification : uniquement admin avec validation des données
+      // Note : current_participants est modifié via transactions atomiques dans le service
+      // Les utilisateurs ne peuvent pas le modifier directement pour éviter les abus
+      allow create, update: if isAdmin() && isValidClassData(request.resource.data);
+      
+      // Suppression : uniquement admin
+      allow delete: if isAdmin();
     }
 
     // ─── Collection : reservations ────────────────────────────────────────
@@ -84,9 +104,10 @@ service cloud.firestore {
       allow read: if isAuthenticated() &&
         (resource.data.user_id == request.auth.uid || isAdmin());
 
-      // Création : utilisateur actif avec abonnement valide, pour lui-même
+      // Création : utilisateur actif avec abonnement valide, pour lui-même, avec validation
       allow create: if isAuthenticated() &&
         hasValidSubscription() &&
+        isValidReservationData(request.resource.data) &&
         request.resource.data.user_id == request.auth.uid;
 
       // Suppression : le propriétaire ou un admin

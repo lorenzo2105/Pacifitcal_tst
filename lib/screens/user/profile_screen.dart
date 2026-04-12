@@ -156,7 +156,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  _sectionTitle(context, 'Mes réservations'),
+                  _sectionTitle(context, 'Mes prochaines séances'),
+                  _buildUpcomingReservations(reservationProvider),
+                  const SizedBox(height: 20),
+                  _sectionTitle(context, 'Calendrier des réservations'),
                   _buildCalendar(reservationProvider),
                   const SizedBox(height: 32),
                   OutlinedButton.icon(
@@ -172,6 +175,131 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
     );
+  }
+
+  Widget _buildUpcomingReservations(ReservationProvider reservationProvider) {
+    final upcomingReservations = reservationProvider.upcomingReservations;
+
+    if (upcomingReservations.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF2A2A2A)),
+        ),
+        child: const Center(
+          child: Column(
+            children: [
+              Icon(Icons.event_busy, size: 48, color: AppTheme.onSurfaceMuted),
+              SizedBox(height: 12),
+              Text(
+                'Aucune séance à venir',
+                style: TextStyle(color: AppTheme.onSurfaceMuted, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: upcomingReservations.length,
+        separatorBuilder: (context, index) =>
+            const Divider(height: 1, indent: 16),
+        itemBuilder: (context, index) {
+          final reservation = upcomingReservations[index];
+          final dateStr = reservation.classDate != null
+              ? DateFormat('EEE dd MMM', 'fr_FR').format(reservation.classDate!)
+              : '';
+
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: AppTheme.primary.withOpacity(0.2),
+              child: const Icon(Icons.fitness_center,
+                  color: AppTheme.primary, size: 20),
+            ),
+            title: Text(
+              reservation.className ?? 'Cours',
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              '$dateStr à ${reservation.classTime ?? ''}',
+              style:
+                  const TextStyle(color: AppTheme.onSurfaceMuted, fontSize: 12),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.cancel_outlined, color: AppTheme.error),
+              onPressed: () => _confirmCancelReservation(context, reservation),
+              tooltip: 'Annuler',
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmCancelReservation(
+      BuildContext context, reservation) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('Annuler la réservation'),
+        content: Text(
+          'Voulez-vous annuler votre réservation pour ${reservation.className} ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Non'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            child: const Text('Oui, annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final auth = context.read<AuthProvider>();
+        await context.read<ReservationProvider>().cancel(
+              reservationId: reservation.id,
+              classId: reservation.classId,
+              userId: auth.currentUser!.id,
+              className: reservation.className ?? 'Cours',
+            );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Réservation annulée'),
+              backgroundColor: AppTheme.warning,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _previousMonth() {

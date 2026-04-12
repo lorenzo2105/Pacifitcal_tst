@@ -30,13 +30,24 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _weekStart = _mondayOf(_selectedDate);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = context.read<AuthProvider>();
-      if (auth.currentUser != null) {
-        context
-            .read<ReservationProvider>()
-            .startListeningUserReservations(auth.currentUser!.id);
-      }
+      _initializeReservationStream();
     });
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    // Appelé uniquement lors d'un hot reload
+    _initializeReservationStream();
+  }
+
+  void _initializeReservationStream() {
+    final auth = context.read<AuthProvider>();
+    final reservationProvider = context.read<ReservationProvider>();
+    if (auth.currentUser != null) {
+      // startListeningUserReservations annule déjà l'ancien stream
+      reservationProvider.startListeningUserReservations(auth.currentUser!.id);
+    }
   }
 
   DateTime _mondayOf(DateTime d) {
