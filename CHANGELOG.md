@@ -4,6 +4,24 @@ Toutes les modifications notables du projet.
 
 ---
 
+## [1.0.1] - 2026-04-12
+
+### � Documentation
+- Ajout GUIDE_PUBLICATION.md (guide complet Android + iOS)
+- Ajout CHECKLIST_PUBLICATION.md (checklist rapide)
+- Instructions step-by-step pour Google Play Store
+- Instructions step-by-step pour Apple App Store
+- Configuration Firebase production
+- Templates de descriptions et politique confidentialité
+
+### �🔒 Modifié
+- Désactivation inscription publique (seul admin peut créer comptes)
+- Remplacement bouton "S'inscrire" par "Mot de passe oublié ?"
+- Ajout dialogue réinitialisation mot de passe par email
+- Suppression route `/register`
+
+---
+
 ## [1.0.0] - 2026-04-12
 
 ### ✨ Ajouté

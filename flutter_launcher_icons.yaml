@@ -1,0 +1,6 @@
+flutter_launcher_icons:
+  android: true
+  ios: false  # Désactivé - Pas de Mac disponible
+  image_path: "assets/icon/icons.jpg"
+  adaptive_icon_background: "#1A1A2E"
+  adaptive_icon_foreground: "assets/icon/icons.jpg"

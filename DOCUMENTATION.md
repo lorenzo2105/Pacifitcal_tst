@@ -248,11 +248,11 @@ Firebase (Backend)
 
 **Fonctionnalités** :
 - ✅ Connexion email/mot de passe
-- ✅ Inscription avec validation
-- ✅ Mot de passe oublié
+- ✅ Réinitialisation mot de passe (email)
 - ✅ Changement de mot de passe
 - ✅ Détection mot de passe faible
 - ✅ Rate limiting (5 tentatives max, 15min blocage)
+- ❌ Inscription désactivée (création uniquement par admin)
 
 **Validation** :
 - Email : Format valide

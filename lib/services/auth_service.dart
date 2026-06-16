@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pacifitcal/models/user_model.dart';
@@ -15,8 +16,14 @@ class AuthService {
       if (doc.exists) {
         return UserModel.fromFirestore(doc);
       }
+      if (kDebugMode) {
+        print('⚠️ getUserData: aucun document users/$uid (doc.exists == false)');
+      }
       return null;
     } catch (e) {
+      if (kDebugMode) {
+        print('❌ getUserData: échec lecture users/$uid -> $e');
+      }
       return null;
     }
   }

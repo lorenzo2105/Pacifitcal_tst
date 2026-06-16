@@ -72,12 +72,19 @@ class UserModel {
       subscriptionEnd: migratedData['subscription_end'] != null
           ? (migratedData['subscription_end'] as Timestamp).toDate()
           : null,
-      active: migratedData['active'] ?? true,
+      active: _parseBool(migratedData['active'], defaultValue: true),
       fcmToken: migratedData['fcm_token'],
-      weakPassword: migratedData['weak_password'] ?? false,
+      weakPassword: _parseBool(migratedData['weak_password'], defaultValue: false),
       schemaVersion:
           migratedData['schema_version'] ?? SchemaVersion.userModelVersion,
     );
+  }
+
+  static bool _parseBool(dynamic value, {required bool defaultValue}) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    if (value is num) return value != 0;
+    return defaultValue;
   }
 
   Map<String, dynamic> toFirestore() {

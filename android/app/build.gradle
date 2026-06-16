@@ -52,12 +52,12 @@ android {
     }
 
     defaultConfig {
+        // MODIFIER CET IDENTIFIANT
         applicationId "com.votresociete.pacifitcal"
         minSdkVersion flutter.minSdkVersion
-        targetSdkVersion flutter.targetSdkVersion
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
-        multiDexEnabled true
+        targetSdkVersion 34
+        versionCode 2
+        versionName "1.0.1"
     }
 
     signingConfigs {

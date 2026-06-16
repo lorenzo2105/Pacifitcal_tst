@@ -88,10 +88,19 @@ service cloud.firestore {
       // Lecture : tout utilisateur authentifié
       allow read: if isAuthenticated();
 
-      // Création / Modification : uniquement admin avec validation des données
-      // Note : current_participants est modifié via transactions atomiques dans le service
-      // Les utilisateurs ne peuvent pas le modifier directement pour éviter les abus
-      allow create, update: if isAdmin() && isValidClassData(request.resource.data);
+      // Création : uniquement admin avec validation des données
+      allow create: if isAdmin() && isValidClassData(request.resource.data);
+
+      // Modification :
+      // - Admin : modification complète avec validation
+      // - Utilisateur authentifié : peut UNIQUEMENT modifier current_participants
+      //   (réservation/annulation via transaction), dans les bornes [0, max_participants]
+      allow update: if (isAdmin() && isValidClassData(request.resource.data)) ||
+        (isAuthenticated() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['current_participants']) &&
+          request.resource.data.current_participants is int &&
+          request.resource.data.current_participants >= 0 &&
+          request.resource.data.current_participants <= resource.data.max_participants);
       
       // Suppression : uniquement admin
       allow delete: if isAdmin();

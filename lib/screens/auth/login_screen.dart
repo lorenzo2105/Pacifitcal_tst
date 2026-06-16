@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:pacifitcal/config/app_theme.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
@@ -45,6 +44,92 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text(
+          'Réinitialiser le mot de passe',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Entrez votre adresse email pour recevoir un lien de réinitialisation.',
+              style: TextStyle(color: AppTheme.onSurfaceMuted),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: AppTheme.onSurfaceMuted),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      final email = emailController.text.trim();
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez entrer votre adresse email'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+        return;
+      }
+
+      try {
+        await context.read<AuthProvider>().resetPassword(email);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✉️ Email envoyé ! Vérifiez votre boîte de réception.',
+              ),
+              backgroundColor: AppTheme.success,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ErrorHandler.getUserMessage(e)),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
+      }
+    }
+    emailController.dispose();
   }
 
   Future<void> _signIn() async {
@@ -199,27 +284,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: const Text('Se connecter'),
                           ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Pas encore de compte ? ',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: AppTheme.onSurfaceMuted),
-                        ),
-                        TextButton(
-                          onPressed: () => context.go('/register'),
-                          child: const Text(
-                            'S\'inscrire',
-                            style: TextStyle(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    Center(
+                      child: TextButton(
+                        onPressed: _showForgotPasswordDialog,
+                        child: const Text(
+                          'Mot de passe oublié ?',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

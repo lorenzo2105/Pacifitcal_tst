@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pacifitcal/providers/auth_provider.dart';
 import 'package:pacifitcal/screens/auth/login_screen.dart';
-import 'package:pacifitcal/screens/auth/register_screen.dart';
 import 'package:pacifitcal/screens/auth/change_password_screen.dart';
 import 'package:pacifitcal/screens/user/home_screen.dart';
 import 'package:pacifitcal/screens/user/profile_screen.dart';
@@ -33,7 +32,7 @@ class AppRouter {
         if (path == '/splash') return null;
 
         if (!isLoggedIn) {
-          if (path == '/login' || path == '/register') return null;
+          if (path == '/login') return null;
           return '/login';
         }
 
@@ -65,10 +64,6 @@ class AppRouter {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
-        ),
-        GoRoute(
-          path: '/register',
-          builder: (context, state) => const RegisterScreen(),
         ),
         GoRoute(
           path: '/change-password',
